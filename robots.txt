@@ -1,0 +1,3 @@
+User-agent: *
+Disallow:
+Sitemap: https://W00kyz.github.io/sitemap.xml
