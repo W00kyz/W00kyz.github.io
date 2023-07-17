@@ -2,14 +2,14 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Wookyz&#39;s Blog</title>
-    <link>https://W00kyz.github.io/</link>
+    <link>https://w00kyz.github.io/</link>
     <description>Recent content on Wookyz&#39;s Blog</description>
     <image>
       <title>Wookyz&#39;s Blog</title>
-      <url>https://W00kyz.github.io/papermod-cover.png</url>
-      <link>https://W00kyz.github.io/papermod-cover.png</link>
+      <url>https://w00kyz.github.io/papermod-cover.png</url>
+      <link>https://w00kyz.github.io/papermod-cover.png</link>
     </image>
-    <generator>Hugo -- gohugo.io</generator><atom:link href="https://W00kyz.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <generator>Hugo -- gohugo.io</generator><atom:link href="https://w00kyz.github.io/index.xml" rel="self" type="application/rss+xml" />
     
     
   </channel>
