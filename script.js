@@ -9,7 +9,7 @@ let currentQuizStage = 0;
 let currentQuestion = 0;
 let timeBonus = 0;
 
-const phrases = [
+const originalPhrases = [
   "A pressão no trabalho pode afetar a saúde mental",
   "É importante fazer pausas durante o dia de trabalho",
   "Respirar fundo ajuda a reduzir o estresse momentâneo",
@@ -36,6 +36,16 @@ const phrases = [
   "Exercícios de alongamento aliviam a tensão muscular",
   "O suporte familiar é importante para a saúde emocional",
 ];
+
+function removeAccents(str) {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeText(str) {
+  return removeAccents(str).toLowerCase();
+}
+
+const phrases = originalPhrases.map(normalizeText);
 
 const dassQuestions = [
   [
@@ -87,16 +97,30 @@ const errorSound = document.getElementById("error-sound");
 startBtn.addEventListener("click", startGame);
 restartBtn.addEventListener("click", restartGame);
 userInput.addEventListener("input", checkInput);
+userInput.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    if (userInput.value.length > 0) {
+      score++;
+      updateScore();
+      decreaseStress(5);
+      successSound.play();
+      userInput.value = "";
+      newPhrase();
+      resetTimer();
+    }
+    e.preventDefault();
+  }
+});
 
-function removeAccents(str) {
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
+let errorsPerChar = [];
 
 function startGame() {
   startScreen.style.display = "none";
   typingGame.style.display = "block";
   score = 0;
   stressLevel = 0;
+  timeBonus = 0;
+  currentQuizStage = 0;
   updateScore();
   updateStress();
   newPhrase();
@@ -106,55 +130,76 @@ function startGame() {
 function newPhrase() {
   currentPhrase = phrases[Math.floor(Math.random() * phrases.length)];
   currentIndex = 0;
+  errorsPerChar = new Array(currentPhrase.length).fill(false);
   displayPhrase();
   userInput.value = "";
   userInput.focus();
 }
 
 function displayPhrase() {
+  const typed = userInput.value;
   let html = "";
+
   for (let i = 0; i < currentPhrase.length; i++) {
-    let char = currentPhrase[i];
-    if (i < currentIndex) {
-      html += `<span class="correct">${char}</span>`;
-    } else if (i === currentIndex) {
-      html += `<span class="current">${char}</span>`;
-    } else {
-      html += `<span>${char}</span>`;
+    const expectedChar = removeAccents(currentPhrase[i].toLowerCase());
+    const typedChar = removeAccents((typed[i] || "").toLowerCase());
+
+    let className = "";
+    if (i < typed.length) {
+      if (typedChar === expectedChar) {
+        className = "correct";
+      } else {
+        className = "incorrect";
+      }
+    } else if (i === typed.length) {
+      className = "current";
     }
+
+    html += `<span class="${className}">${currentPhrase[i]}</span>`;
   }
+
   phraseDisplay.innerHTML = html;
 }
 
 function checkInput(e) {
-  const char = e.target.value.slice(-1);
-  const expected = currentPhrase[currentIndex];
+  const typed = e.target.value;
+  currentIndex = typed.length;
 
-  if (
-    removeAccents(char.toLowerCase()) === removeAccents(expected.toLowerCase())
-  ) {
-    currentIndex++;
-    displayPhrase();
-    e.target.value = "";
+  for (let i = 0; i < typed.length; i++) {
+    const expectedChar = removeAccents(currentPhrase[i].toLowerCase());
+    const typedChar = removeAccents(typed[i].toLowerCase());
 
-    if (currentIndex === currentPhrase.length) {
-      score++;
-      updateScore();
-      decreaseStress(5);
-
-      successSound.play();
-
-      newPhrase();
-      resetTimer();
+    if (typedChar !== expectedChar) {
+      if (!errorsPerChar[i]) {
+        increaseStress(15);
+        errorSound.play();
+        errorsPerChar[i] = true;
+      }
+    } else {
+      if (errorsPerChar[i]) {
+        errorsPerChar[i] = false;
+      }
     }
-  } else if (char !== "") {
-    const before = currentPhrase.slice(0, currentIndex);
-    const wordStart = before.lastIndexOf(" ") + 1;
-    currentIndex = wordStart >= 0 ? wordStart : 0;
+  }
+
+  // Limpa erros nas posições após o tamanho digitado (se apagou)
+  for (let i = typed.length; i < errorsPerChar.length; i++) {
+    if (errorsPerChar[i]) {
+      errorsPerChar[i] = false;
+    }
+  }
+
+  displayPhrase();
+
+  // Avança se digitar frase toda (mesmo com erros)
+  if (typed.length === currentPhrase.length) {
+    score++;
+    updateScore();
+    decreaseStress(5);
+    successSound.play();
     e.target.value = "";
-    displayPhrase();
-    errorSound.play();
-    increaseStress(15);
+    newPhrase();
+    resetTimer();
   }
 }
 
@@ -242,7 +287,6 @@ function showNextQuestion() {
       return;
     }
 
-    // Voltar ao jogo após etapa de quiz
     quizSection.style.display = "none";
     typingGame.style.display = "block";
     stressLevel = 0;
@@ -286,12 +330,6 @@ function showNextQuestion() {
   nextBtn.addEventListener("click", function () {
     const selectedOption = quizContainer.querySelector(".selected");
     if (selectedOption) {
-      quizAnswers.push({
-        category: currentQuizStage,
-        question: currentQuestion,
-        answer: parseInt(selectedOption.dataset.value),
-      });
-
       const answerValue = parseInt(selectedOption.dataset.value);
       quizAnswers.push({
         category: currentQuizStage,
@@ -299,7 +337,6 @@ function showNextQuestion() {
         answer: answerValue,
       });
 
-      // 🎯 Aplicar bônus de tempo
       if (answerValue === 2) timeBonus += 1;
       if (answerValue === 3) timeBonus += 2;
 
