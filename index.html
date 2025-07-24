@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digitação Sob Pressão</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <audio id="success-sound" src="assets/success.mp3" preload="auto"></audio>
+    <audio id="error-sound" src="assets/error.mp3" preload="auto"></audio>
+    <div id="game-container">
+      <h1>Digitação Sob Pressão</h1>
+
+      <div id="start-screen">
+        <p>
+          Digite as frases que aparecerão na tela o mais rápido possível. Cada
+          erro aumenta seu nível de estresse. Quando o estresse atingir o
+          máximo, você precisará responder um questionário sobre saúde mental.
+        </p>
+        <button id="start-btn">Começar Jogo</button>
+      </div>
+
+      <div id="typing-game">
+        <div id="stress-bar">
+          <div id="stress-progress"></div>
+        </div>
+        <div id="stress-level">Estresse: 0%</div>
+        <div id="timer">Tempo: 10s</div>
+        <div id="phrase-display"></div>
+        <input
+          type="text"
+          id="user-input"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+        <div id="score">Pontuação: 0</div>
+      </div>
+
+      <div id="quiz-section">
+        <h2>Questionário de Saúde Mental</h2>
+        <p>Responda com sinceridade às seguintes perguntas:</p>
+        <div id="quiz-container"></div>
+      </div>
+
+      <div id="results">
+        <h2>Resultados</h2>
+        <div id="results-content"></div>
+        <button id="restart-btn">Jogar Novamente</button>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
