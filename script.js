@@ -93,6 +93,7 @@ const quizContainer = document.getElementById("quiz-container");
 const resultsContent = document.getElementById("results-content");
 const successSound = document.getElementById("success-sound");
 const errorSound = document.getElementById("error-sound");
+const tickSound = document.getElementById("tick-sound");
 
 startBtn.addEventListener("click", startGame);
 restartBtn.addEventListener("click", restartGame);
@@ -208,14 +209,22 @@ function startTimer() {
   let baseTime = Math.ceil(currentPhrase.length * baseTimePerChar);
 
   timeLeft = baseTime - Math.floor(score / 3) + timeBonus;
-
   if (timeLeft < 3) timeLeft = 3;
 
   updateTimer();
 
+  let playedTicks = new Set();
+
   timer = setInterval(() => {
     timeLeft--;
     updateTimer();
+
+    if (timeLeft <= 5 && timeLeft > 0 && !playedTicks.has(timeLeft)) {
+      playedTicks.add(timeLeft);
+      const tickSound = document.getElementById("tick-sound");
+      tickSound.currentTime = 0;
+      tickSound.play();
+    }
 
     if (timeLeft <= 0) {
       clearInterval(timer);
@@ -267,6 +276,8 @@ function updateStress() {
 
 function startQuiz() {
   clearInterval(timer);
+  tickSound.pause();
+  tickSound.currentTime = 0;
   typingGame.style.display = "none";
   quizSection.style.display = "block";
 
