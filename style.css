@@ -1,19 +1,19 @@
 body {
-  display: flex; /* Ativa flexbox */
-  justify-content: center; /* Centraliza horizontalmente */
-  align-items: center; /* Centraliza verticalmente */
-  height: 100vh; /* Altura total da viewport */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: #1e1e1e;
+  color: #f1f1f1;
 }
 
 #game-container {
-  background-color: white;
+  background-color: #2e2e2e;
   border-radius: 10px;
   padding: 20px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
   max-width: 800px;
   width: 100%;
 }
@@ -25,7 +25,7 @@ body {
 }
 
 h1 {
-  color: #2c3e50;
+  color: #ffffff;
   text-align: center;
 }
 
@@ -33,9 +33,10 @@ h1 {
   font-size: 24px;
   margin: 20px 0;
   padding: 15px;
-  background-color: #f8f9fa;
+  background-color: #3a3a3a;
   border-radius: 5px;
   min-height: 60px;
+  color: #ffffff;
 }
 
 #user-input {
@@ -49,15 +50,12 @@ h1 {
   font-size: 18px;
   font-weight: bold;
   margin: 10px 0;
-}
-
-#timer {
-  color: #e74c3c;
+  color: #ff6b6b;
 }
 
 #stress-bar {
   height: 20px;
-  background-color: #ecf0f1;
+  background-color: #444;
   border-radius: 10px;
   margin-bottom: 20px;
   overflow: hidden;
@@ -66,7 +64,7 @@ h1 {
 #stress-progress {
   height: 100%;
   width: 0%;
-  background-color: #e74c3c;
+  background-color: #ff4444;
   transition: width 0.3s;
 }
 
@@ -75,29 +73,29 @@ h1 {
 }
 
 .incorrect {
-  color: #e74c3c;
+  color: #ff6b6b;
   font-weight: bold;
-  background-color: #fceae9;
+  background-color: #5c1d1d;
   border-radius: 3px;
 }
 
 .current {
   text-decoration: underline;
   transition: background-color 0.3s ease, color 0.3s ease;
-  background-color: rgba(0, 0, 0, 0);
+  background-color: rgba(255, 255, 255, 0);
 }
 
 .correct {
-  color: #2ecc71;
+  color: #27ff97;
   transition: color 0.3s ease;
 }
 
 .current:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 button {
-  background-color: #3498db;
+  background-color: #2980b9;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -108,7 +106,7 @@ button {
 }
 
 button:hover {
-  background-color: #2980b9;
+  background-color: #1c5d87;
 }
 
 #quiz-container {
@@ -118,8 +116,9 @@ button:hover {
 .quiz-question {
   margin-bottom: 20px;
   padding: 15px;
-  background-color: #f8f9fa;
+  background-color: #3a3a3a;
   border-radius: 5px;
+  color: #f1f1f1;
 }
 
 .quiz-options {
@@ -130,13 +129,15 @@ button:hover {
 
 .quiz-option {
   padding: 8px 12px;
-  background-color: #ecf0f1;
+  background-color: #4e4e4e;
   border-radius: 5px;
   cursor: pointer;
+  color: #fff;
 }
 
 .quiz-option:hover {
-  background-color: #bdc3c7;
+  background-color: #6c6cff;
+  color: #fff;
 }
 
 .quiz-option.selected {
@@ -146,11 +147,12 @@ button:hover {
 
 .result-category {
   margin-bottom: 15px;
+  color: #fff;
 }
 
 .progress-container {
   height: 20px;
-  background-color: #ecf0f1;
+  background-color: #444;
   border-radius: 10px;
   margin-top: 5px;
 }
@@ -158,4 +160,5 @@ button:hover {
 .progress-bar {
   height: 100%;
   border-radius: 10px;
+  background-color: #27ae60;
 }
