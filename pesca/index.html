@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mini-Jogo Pesca com Mão</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #a0d8f0;
+        user-select: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      canvas {
+        display: block;
+        background: #a0d8f0;
+      }
+      #score,
+      #vidas,
+      #tempo {
+        position: absolute;
+        font-family: Arial, sans-serif;
+        font-size: 20px;
+        color: #fff;
+        text-shadow: 1px 1px 2px #000;
+        z-index: 2;
+      }
+      #score {
+        top: 10px;
+        left: 10px;
+      }
+      #vidas {
+        top: 40px;
+        left: 10px;
+      }
+      #tempo {
+        top: 10px;
+        right: 10px;
+      }
+      video {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        width: 200px;
+        transform: scaleX(-1);
+        border: 2px solid white;
+        border-radius: 8px;
+        z-index: 2;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="score">Pontuação: 0</div>
+    <div id="vidas">Vidas: 3</div>
+    <div id="tempo">Tempo: 60</div>
+    <canvas id="gameCanvas" width="800" height="800"></canvas>
+    <video id="video" autoplay muted playsinline></video>
+
+    <!-- MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+    <script>
+      (() => {
+        const params = {
+          canvasWidth: 800,
+          canvasHeight: 800,
+          backgroundSrc: "cenario.png",
+          iscaNormalSrc: "isca.png",
+          iscaCapturadaSrc: "isca_coca.png",
+          peixeSrc: "coca.png",
+          ursoSrc: "urso.png",
+          lixoSrc: "lixo.png",
+          logoSrc: "logo.png",
+          linhaInicialX: 305,
+          linhaTopoY: 105,
+          linhaInicialY: 450,
+          linhaMinY: 150,
+          linhaMaxY: 750,
+          iscaWidth: 40,
+          iscaHeight: 80,
+          peixeWidth: 40,
+          peixeHeight: 40,
+          lixoWidth: 50,
+          lixoHeight: 50,
+          capturaRaio: 30,
+          alturaCaptura: 320,
+          ursoX: 270,
+          ursoY: 35,
+          ursoWidth: 300,
+          ursoHeight: 300,
+          numPeixes: 3,
+          numLixos: 2,
+          piscarDuracao: 1000,
+          piscarIntervalo: 100,
+          tempoInicial: 60,
+          premios: { lata: 5, umLitro: 10, voucher: 20 },
+          framesParaConfirmarGesto: 10,
+          suavizacaoY: 0.25,
+          noHandImageSrc: "hand.png",
+        };
+
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const scoreDiv = document.getElementById("score");
+        const vidasDiv = document.getElementById("vidas");
+        const tempoDiv = document.getElementById("tempo");
+
+        let score = 0,
+          vidas = 3,
+          tempo = params.tempoInicial;
+        let linhaY = params.linhaInicialY;
+        let peixeCapturado = null;
+        const peixes = [],
+          lixos = [];
+        let isUrsoVisivel = true,
+          piscarTimeout = null,
+          piscarInterval = null;
+        let gameState = "menu",
+          logoScale = 1,
+          logoPulseDir = 1,
+          cronometroInterval = null;
+        let ultimoGesto = "outro",
+          framesMesmoGesto = 0;
+        let handDetected = false;
+
+        const images = {};
+        const noHandImg = new Image();
+        noHandImg.src = params.noHandImageSrc;
+
+        const loadImage = (src) =>
+          new Promise((res) => {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => res(img);
+          });
+
+        async function loadAssets() {
+          images.background = await loadImage(params.backgroundSrc);
+          images.iscaNormal = await loadImage(params.iscaNormalSrc);
+          images.iscaCapturada = await loadImage(params.iscaCapturadaSrc);
+          images.peixe = await loadImage(params.peixeSrc);
+          images.urso = await loadImage(params.ursoSrc);
+          images.lixo = await loadImage(params.lixoSrc);
+          images.logo = await loadImage(params.logoSrc);
+        }
+
+        function randomBetween(min, max) {
+          return Math.random() * (max - min) + min;
+        }
+
+        function criaPeixe() {
+          const d = Math.random() < 0.5 ? 1 : -1;
+          return {
+            x:
+              d === 1
+                ? -params.peixeWidth
+                : params.canvasWidth + params.peixeWidth,
+            y: randomBetween(params.alturaCaptura + 1, params.linhaMaxY - 50),
+            vx: d * randomBetween(1, 2),
+            capturado: false,
+            tipo: "peixe",
+            direcao: d,
+            floatOffset: 0,
+            floatSpeed: randomBetween(0.02, 0.04),
+            rotation: 0,
+            rotationSpeed: randomBetween(-0.005, 0.005),
+          };
+        }
+
+        function criaLixo() {
+          const d = Math.random() < 0.5 ? 1 : -1;
+          return {
+            x:
+              d === 1
+                ? -params.lixoWidth
+                : params.canvasWidth + params.lixoWidth,
+            y: randomBetween(params.alturaCaptura + 1, params.linhaMaxY - 50),
+            vx: d * randomBetween(1, 2),
+            capturado: false,
+            tipo: "lixo",
+            direcao: d,
+            floatOffset: 0,
+            floatSpeed: randomBetween(0.015, 0.03),
+            rotation: 0,
+            rotationSpeed: randomBetween(-0.004, 0.004),
+          };
+        }
+
+        function reiniciaObjeto(obj) {
+          if (obj.tipo === "peixe") Object.assign(obj, criaPeixe());
+          else Object.assign(obj, criaLixo());
+        }
+
+        function iniciarPiscarUrso() {
+          if (piscarTimeout) clearTimeout(piscarTimeout);
+          if (piscarInterval) clearInterval(piscarInterval);
+          let v = false;
+          isUrsoVisivel = true;
+          piscarInterval = setInterval(() => {
+            v = !v;
+            isUrsoVisivel = v;
+          }, params.piscarIntervalo);
+          piscarTimeout = setTimeout(() => {
+            clearInterval(piscarInterval);
+            isUrsoVisivel = true;
+          }, params.piscarDuracao);
+        }
+
+        function checaCaptura() {
+          if (peixeCapturado) return;
+          for (const obj of [...peixes, ...lixos]) {
+            const dx = params.linhaInicialX - obj.x;
+            const dy = linhaY - obj.y;
+            if (Math.hypot(dx, dy) <= params.capturaRaio) {
+              obj.capturado = true;
+              peixeCapturado = obj;
+              if (obj.tipo === "lixo") {
+                vidas--;
+                vidasDiv.textContent = `Vidas: ${vidas}`;
+                iniciarPiscarUrso();
+                if (vidas <= 0) encerrarJogo();
+              }
+              break;
+            }
+          }
+        }
+
+        function checaSubidaParaPontuar() {
+          if (!peixeCapturado) return;
+          if (linhaY <= params.alturaCaptura) {
+            if (peixeCapturado.tipo === "peixe") {
+              score++;
+              scoreDiv.textContent = `Pontuação: ${score}`;
+            }
+            reiniciaObjeto(peixeCapturado);
+            peixeCapturado = null;
+          }
+        }
+
+        function atualizaObjetos() {
+          for (const obj of [...peixes, ...lixos]) {
+            if (obj.capturado) {
+              obj.x = params.linhaInicialX;
+              obj.y = linhaY;
+            } else {
+              obj.x += obj.vx;
+              obj.floatOffset += obj.floatSpeed;
+              obj.y += Math.sin(obj.floatOffset) * 0.5;
+              obj.rotation += obj.rotationSpeed;
+              if (obj.x < -50 || obj.x > canvas.width + 50) reiniciaObjeto(obj);
+            }
+          }
+        }
+
+        function desenhaMenuInicial() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(images.background, 0, 0, canvas.width, canvas.height);
+          const logoW = 300,
+            logoH = 300;
+          ctx.drawImage(
+            images.logo,
+            canvas.width / 2 - logoW / 2,
+            canvas.height / 2 - logoH / 2 - 60,
+            logoW,
+            logoH
+          );
+          ctx.fillStyle = "#fff";
+          ctx.textAlign = "center";
+          ctx.font = "28px Arial";
+          ctx.fillText(
+            "👋 Abra a mão para INICIAR o jogo",
+            canvas.width / 2,
+            canvas.height / 2 + 160
+          );
+          ctx.font = "18px Arial";
+          ctx.fillText(
+            `Prêmios: ${params.premios.lata}+ = Lata | ${params.premios.umLitro}+ = 1L | ${params.premios.voucher}+ = Voucher`,
+            canvas.width / 2,
+            canvas.height / 2 + 200
+          );
+        }
+
+        function desenhaFimDeJogo() {
+          ctx.save();
+          ctx.globalAlpha = 0.8;
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.restore();
+          const logoW = 300 * logoScale,
+            logoH = 300 * logoScale;
+          logoScale += logoPulseDir * 0.01;
+          if (logoScale > 1.1 || logoScale < 0.9) logoPulseDir *= -1;
+          ctx.drawImage(
+            images.logo,
+            canvas.width / 2 - logoW / 2,
+            canvas.height / 2 - logoH / 2 - 60,
+            logoW,
+            logoH
+          );
+          ctx.fillStyle = "#fff";
+          ctx.textAlign = "center";
+          ctx.font = "30px Arial";
+          ctx.fillText(
+            "Fim de Jogo!",
+            canvas.width / 2,
+            canvas.height / 2 + logoH / 2
+          );
+          let premio = "";
+          if (score >= params.premios.voucher)
+            premio = "🎉 Você ganhou um Voucher!";
+          else if (score >= params.premios.umLitro)
+            premio = "🥤 Você ganhou uma Coca-Cola de 1 Litro!";
+          else if (score >= params.premios.lata)
+            premio = "🧃 Você ganhou uma lata de Coca-Cola!";
+          else premio = "😢 Infelizmente você não atingiu a pontuação mínima.";
+          ctx.font = "24px Arial";
+          ctx.fillText(
+            premio,
+            canvas.width / 2,
+            canvas.height / 2 + logoH / 2 + 40
+          );
+          ctx.font = "22px Arial";
+          ctx.fillText(
+            "👊 Feche a mão para REINICIAR",
+            canvas.width / 2,
+            canvas.height / 2 + logoH / 2 + 80
+          );
+        }
+
+        function drawCena() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(images.background, 0, 0, canvas.width, canvas.height);
+          if (isUrsoVisivel)
+            ctx.drawImage(
+              images.urso,
+              params.ursoX,
+              params.ursoY,
+              params.ursoWidth,
+              params.ursoHeight
+            );
+
+          ctx.strokeStyle = "#000";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(params.linhaInicialX, params.linhaTopoY);
+          ctx.lineTo(params.linhaInicialX, linhaY);
+          ctx.stroke();
+
+          ctx.drawImage(
+            peixeCapturado && peixeCapturado.tipo === "peixe"
+              ? images.iscaCapturada
+              : images.iscaNormal,
+            params.linhaInicialX - params.iscaWidth / 2,
+            linhaY - params.iscaHeight / 2,
+            params.iscaWidth,
+            params.iscaHeight
+          );
+
+          for (const peixe of peixes) {
+            if (!peixe.capturado) {
+              ctx.save();
+              ctx.translate(peixe.x, peixe.y);
+              ctx.rotate(peixe.rotation);
+              ctx.drawImage(
+                images.peixe,
+                -params.peixeWidth / 2,
+                -params.peixeHeight / 2,
+                params.peixeWidth,
+                params.peixeHeight
+              );
+              ctx.restore();
+            }
+          }
+
+          for (const lixo of lixos) {
+            if (!lixo.capturado) {
+              ctx.save();
+              ctx.translate(lixo.x, lixo.y);
+              ctx.rotate(lixo.rotation);
+              ctx.drawImage(
+                images.lixo,
+                -params.lixoWidth / 2,
+                -params.lixoHeight / 2,
+                params.lixoWidth,
+                params.lixoHeight
+              );
+              ctx.restore();
+            }
+          }
+
+          if (gameState === "playing" && !handDetected) {
+            ctx.drawImage(noHandImg, canvas.width - 120, 20, 100, 100);
+          }
+        }
+
+        function gameLoop() {
+          if (gameState === "menu") desenhaMenuInicial();
+          else if (gameState === "gameover") drawCena(), desenhaFimDeJogo();
+          else if (gameState === "playing") {
+            atualizaObjetos();
+            checaCaptura();
+            checaSubidaParaPontuar();
+            drawCena();
+          }
+          requestAnimationFrame(gameLoop);
+        }
+
+        function encerrarJogo() {
+          gameState = "gameover";
+          if (cronometroInterval) {
+            clearInterval(cronometroInterval);
+            cronometroInterval = null;
+          }
+        }
+
+        function resetListasObjetos() {
+          peixes.length = 0;
+          lixos.length = 0;
+          for (let i = 0; i < params.numPeixes; i++) peixes.push(criaPeixe());
+          for (let i = 0; i < params.numLixos; i++) lixos.push(criaLixo());
+        }
+        function resetHUD() {
+          scoreDiv.textContent = `Pontuação: ${score}`;
+          vidasDiv.textContent = `Vidas: ${vidas}`;
+          tempoDiv.textContent = `Tempo: ${tempo}`;
+        }
+        function resetGameState() {
+          linhaY = params.linhaInicialY;
+          score = 0;
+          vidas = 3;
+          tempo = params.tempoInicial;
+          peixeCapturado = null;
+          isUrsoVisivel = true;
+          if (piscarTimeout) clearTimeout(piscarTimeout);
+          if (piscarInterval) clearInterval(piscarInterval);
+          resetListasObjetos();
+          resetHUD();
+        }
+
+        function iniciarCronometro() {
+          if (cronometroInterval) clearInterval(cronometroInterval);
+          cronometroInterval = setInterval(() => {
+            if (gameState !== "playing") return;
+            tempo--;
+            tempoDiv.textContent = `Tempo: ${tempo}`;
+            if (tempo <= 0) encerrarJogo();
+          }, 1000);
+        }
+        function startGame() {
+          resetGameState();
+          gameState = "playing";
+          iniciarCronometro();
+        }
+        function restartGame() {
+          resetGameState();
+          gameState = "playing";
+          iniciarCronometro();
+        }
+
+        function dedosAbertos(hand) {
+          return [
+            hand[4].x < hand[3].x,
+            hand[8].y < hand[6].y,
+            hand[12].y < hand[10].y,
+            hand[16].y < hand[14].y,
+            hand[20].y < hand[18].y,
+          ];
+        }
+        function detectaGesto(hand) {
+          const abertos = dedosAbertos(hand).filter(Boolean).length;
+          if (abertos >= 4) return "aberta";
+          if (abertos <= 1) return "fechada";
+          return "outro";
+        }
+
+        function processarGesto(gesto) {
+          if (gesto === ultimoGesto) {
+            framesMesmoGesto++;
+          } else {
+            ultimoGesto = gesto;
+            framesMesmoGesto = 1;
+          }
+          if (framesMesmoGesto >= params.framesParaConfirmarGesto) {
+            if (gameState === "menu" && gesto === "aberta") {
+              startGame();
+              framesMesmoGesto = 0;
+            } else if (gameState === "gameover" && gesto === "fechada") {
+              restartGame();
+              framesMesmoGesto = 0;
+            }
+          }
+        }
+
+        function controlarLinhaComMao(hand) {
+          let alvoY = hand[9].y * canvas.height;
+          if (alvoY < params.linhaMinY) alvoY = params.linhaMinY;
+          if (alvoY > params.linhaMaxY) alvoY = params.linhaMaxY;
+          linhaY += (alvoY - linhaY) * params.suavizacaoY;
+        }
+
+        async function start() {
+          await loadAssets();
+          resetHUD();
+          resetListasObjetos();
+          gameState = "menu";
+          gameLoop();
+
+          const video = document.getElementById("video");
+          const hands = new Hands({
+            locateFile: (file) =>
+              `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+          });
+          hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.5,
+          });
+
+          hands.onResults((results) => {
+            if (
+              results.multiHandLandmarks &&
+              results.multiHandLandmarks.length
+            ) {
+              const hand = results.multiHandLandmarks[0];
+              handDetected = true;
+              processarGesto(detectaGesto(hand));
+              if (gameState === "playing") controlarLinhaComMao(hand);
+            } else {
+              handDetected = false;
+            }
+          });
+
+          const camera = new Camera(video, {
+            onFrame: async () => {
+              await hands.send({ image: video });
+            },
+            width: 640,
+            height: 480,
+          });
+          camera.start();
+        }
+
+        start();
+      })();
+    </script>
+  </body>
+</html>
